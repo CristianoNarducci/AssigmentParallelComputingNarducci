@@ -75,11 +75,11 @@ void boids_rules(Boid& a, const std::vector<Boid>& boids) {
     }
 
     if (neighboring_boids > 0) {
-        xvel_avg = xvel_avg / neighboring_boids;
-        yvel_avg = yvel_avg / neighboring_boids;
+        xvel_avg = xvel_avg / static_cast<float>(neighboring_boids);
+        yvel_avg = yvel_avg / static_cast<float>(neighboring_boids);
 
-        xpos_avg = xpos_avg / neighboring_boids;
-        ypos_avg = ypos_avg /neighboring_boids;
+        xpos_avg = xpos_avg / static_cast<float>(neighboring_boids);
+        ypos_avg = ypos_avg / static_cast<float>(neighboring_boids);
 
         a.vx += (xvel_avg - a.vx) * MATCHING_FACTOR; //velocity update wrt alignment rule
         a.vy += (yvel_avg - a.vy) * MATCHING_FACTOR;
@@ -93,7 +93,7 @@ void boids_rules(Boid& a, const std::vector<Boid>& boids) {
 
     //check boids margin
     if (a.x < 50) {
-        printf("Boid di T: %d fuori! Rientra\n",a.thread_id);
+        //printf("Boid di T: %d fuori! Rientra\n",a.thread_id);
         a.vx += TURN_FACTOR;
     }
     if (a.x > WIDTH - 50) {
@@ -149,13 +149,13 @@ int main() {
                 update_position(boids[i]);
             }
         }
-        if(i % 100== 0){
+        if(i % 100 == 0){
         #pragma omp critical
             printf("step: %d\n",i);
-            for (int i = 0; i< 3;i++) {
-                printf("Boid[%d] Thread: %d\n",i,boids[i].thread_id);
-                printf("X: %f , Y: %f\n",boids[i].x,boids[i].y);
-                printf("Vx: %f, Vy: %f\n",boids[i].vx,boids[i].vy);
+            for (int j = 0; j< 3;j++) {
+                printf("Boid[%d] Thread: %d\n",j,boids[j].thread_id);
+                printf("X: %f , Y: %f\n",boids[j].x,boids[j].y);
+                printf("Vx: %f, Vy: %f\n",boids[j].vx,boids[j].vy);
             }
         }
     }

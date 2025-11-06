@@ -2,6 +2,8 @@
 #include <omp.h>
 #include <vector>
 #include <cmath>
+#include <chrono>
+
 
 struct Boid {
     float x,y;
@@ -9,7 +11,7 @@ struct Boid {
     int thread_id;
 };
 
-const int NUM_BOIDS = 1000;
+const int NUM_BOIDS = 10000;
 const int NUM_STEPS = 1000;
 const float WIDTH = 800;
 const float HEIGHT = 600;
@@ -34,6 +36,15 @@ void init_boids(std::vector<Boid>& boids) {
     }
 }
 
+void update_position(Boid& boid) {
+    boid.x += boid.vx;
+    boid.y += boid.vy;
+
+    if (boid.x < 0)       boid.x += WIDTH;
+    if (boid.x >= WIDTH)  boid.x -= WIDTH;
+    if (boid.y < 0)       boid.y += HEIGHT;
+    if (boid.y >= HEIGHT) boid.y -= HEIGHT;
+}
 float getDistance(const Boid& a, const Boid& b) {
     float dx = a.x - b.x;
     float dy = a.y - b.y;
@@ -115,36 +126,29 @@ void boids_rules(Boid& a, const std::vector<Boid>& boids) {
         a.vx = (a.vx / speed)*MIN_SPEED;
         a.vy = (a.vy / speed)*MIN_SPEED;
     }
-    //a.x += a.vx;
-    //a.y += a.vy;
-
+    //update_position(a); TODO chiedere al prof se usare cosi si possa togliere il secondo for nel main
 }
-void update_position(Boid& boid) {
-    boid.x += boid.vx;
-    boid.y += boid.vy;
 
-    if (boid.x < 0)       boid.x += WIDTH;
-    if (boid.x >= WIDTH)  boid.x -= WIDTH;
-    if (boid.y < 0)       boid.y += HEIGHT;
-    if (boid.y >= HEIGHT) boid.y -= HEIGHT;
-}
+//TODO chiedere anche come fare la valutazione. bastano i tempi oppure anche qualcosa di grafico
+//inoltre come fare per visualizzare i boids?
 
 int main() {
     std::vector<Boid> boids(NUM_BOIDS);
     std::vector<Boid> old_boids(NUM_BOIDS);
     init_boids(boids);
-
+    double start,end;
+    start = omp_get_wtime();
     for (int i = 0; i < NUM_STEPS; i++) {
         old_boids = boids;
         #pragma omp parallel
         {
-        #pragma omp for
+        #pragma omp for //nowait TODO corretto o sbagliato metterlo?
             for (int i = 0; i < NUM_BOIDS; i++) {
                 boids[i].thread_id = omp_get_thread_num();
                 boids_rules(boids[i], old_boids);
             }
 
-            #pragma omp for
+            #pragma omp for //nowait
             for (int i = 0; i < NUM_BOIDS; i++) {
                 update_position(boids[i]);
             }
@@ -158,7 +162,25 @@ int main() {
                 printf("Vx: %f, Vy: %f\n",boids[j].vx,boids[j].vy);
             }
         }
+
     }
+    end = omp_get_wtime();
+    printf("Time elapsed parallel mode: %g s\n", (end -start));
+    printf("START SEQUENTIAL MODE\n");
+    init_boids(boids);
+    auto s = std::chrono::steady_clock::now();
+    for (int i = 0; i< NUM_STEPS;i++) {
+        old_boids = boids;
+        for (int j = 0; j < NUM_BOIDS;j++) {
+            boids_rules(boids[j],old_boids);
+        }
+        for (int k = 0; k < NUM_BOIDS;k++) {
+            update_position(boids[k]);
+        }
+    }
+    auto e = std::chrono::steady_clock::now();
+    auto duration = e - s;
+    printf("Time elapsed in sequential mode: %f s\n", std::chrono::duration<double,std::milli>(duration).count() / 1000);
     return 0;
 
 }

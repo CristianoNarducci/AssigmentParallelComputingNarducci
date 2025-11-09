@@ -4,11 +4,17 @@
 #include <cmath>
 #include <chrono>
 
-
+//AoS
 struct Boid {
     float x,y;
     float vx,vy;
     int thread_id;
+};
+
+//SoA
+struct Boids {
+    std::vector<float> x,y;
+    std::vector<float> vx,vy;
 };
 
 const int NUM_BOIDS = 10000;
@@ -33,6 +39,19 @@ void init_boids(std::vector<Boid>& boids) {
         b.y = static_cast<float>(rand())/RAND_MAX * HEIGHT;
         b.vx = (static_cast<float>(rand())/RAND_MAX - 0.5f) * 2;
         b.vy = (static_cast<float>(rand())/RAND_MAX - 0.5f) * 2;
+    }
+}
+
+void init_boids_soa(Boids& boids) {
+    boids.x.resize(NUM_BOIDS);
+    boids.y.resize(NUM_BOIDS);
+    boids.vx.resize(NUM_BOIDS);
+    boids.vy.resize(NUM_BOIDS);
+    for (int i = 0; i < NUM_BOIDS; i++) {
+        boids.x[i] = static_cast<float>(rand())/RAND_MAX * WIDTH;
+        boids.y[i] = static_cast<float>(rand())/RAND_MAX * HEIGHT;
+        boids.vx[i] = (static_cast<float>(rand())/RAND_MAX - 0.5f) * 2;
+        boids.vy[i] = (static_cast<float>(rand())/RAND_MAX - 0.5f) * 2;
     }
 }
 
@@ -62,13 +81,14 @@ void boids_rules(Boid& a, const std::vector<Boid>& boids) {
     float yvel_avg = 0;
     int neighboring_boids = 0;
     float xpos_avg = 0;
-    float ypos_avg = 0 ;
+    float ypos_avg = 0;
 
     for (const auto& other : boids) {
         if (&a == &other) continue;
         float distance = getDistance(a,other);
         //Separation
         if (distance < PROTECTED_RANGE) {
+            //printf("Boids T: %d in separation with boids T: %d\n",a.thread_id,other.thread_id);
             close_dx += a.x - other.x;
             close_dy += a.y - other.y;
         }
@@ -80,7 +100,7 @@ void boids_rules(Boid& a, const std::vector<Boid>& boids) {
             xpos_avg += other.x;
             ypos_avg += other.y;
 
-            neighboring_boids += 1;
+            neighboring_boids++;
         }
 
     }
@@ -104,7 +124,6 @@ void boids_rules(Boid& a, const std::vector<Boid>& boids) {
 
     //check boids margin
     if (a.x < 50) {
-        //printf("Boid di T: %d fuori! Rientra\n",a.thread_id);
         a.vx += TURN_FACTOR;
     }
     if (a.x > WIDTH - 50) {
@@ -126,61 +145,129 @@ void boids_rules(Boid& a, const std::vector<Boid>& boids) {
         a.vx = (a.vx / speed)*MIN_SPEED;
         a.vy = (a.vy / speed)*MIN_SPEED;
     }
-    //update_position(a); TODO chiedere al prof se usare cosi si possa togliere il secondo for nel main
 }
 
-//TODO chiedere anche come fare la valutazione. bastano i tempi oppure anche qualcosa di grafico
-//inoltre come fare per visualizzare i boids?
+void boids_rules_soa(Boids& a, const Boids& old, int index) {
+    float close_dx = 0;
+    float close_dy = 0;
+
+    float xvel_avg = 0;
+    float yvel_avg = 0;
+    int neighboring_boids = 0;
+    float xpos_avg = 0;
+    float ypos_avg = 0;
+
+    for (int j = 0; j < NUM_BOIDS;j++) {
+        if (j == index) continue;
+        float dx = old.x[index] - old.x[j];
+        float dy = old.y[index] - old.y[j];
+        float distance = std::sqrt(dx * dx + dy * dy);
+
+        if (distance < PROTECTED_RANGE) {
+            close_dx += dx;
+            close_dy += dy;
+        }
+
+        if (distance < VISUAL_RANGE) {
+            xvel_avg += old.vx[j];
+            yvel_avg += old.vy[j];
+
+            xpos_avg += old.x[j];
+            ypos_avg += old.y[j];
+
+            neighboring_boids++;
+        }
+    }
+    if (neighboring_boids > 0) {
+        xvel_avg /= static_cast<float>(neighboring_boids);
+        yvel_avg /= static_cast<float>(neighboring_boids);
+
+        xpos_avg /= static_cast<float>(neighboring_boids);
+        ypos_avg /= static_cast<float>(neighboring_boids);
+
+        a.vx[index] += (xvel_avg - old.vx[index]) * MATCHING_FACTOR;
+        a.vy[index] += (yvel_avg - old.vy[index]) * MATCHING_FACTOR;
+
+        a.vx[index] += (xpos_avg - old.x[index]) * CENTERING_FACTOR;
+        a.vy[index] += (ypos_avg - old.y[index]) * CENTERING_FACTOR;
+    }
+    a.vx[index] += close_dx * AVOID_FACTOR;
+    a.vy[index] += close_dy * AVOID_FACTOR;
+
+    if (a.x[index] < 50) a.vx[index] += TURN_FACTOR;
+    if (a.x[index] > WIDTH - 50) a.vx[index] += TURN_FACTOR;
+    if (a.y[index] < 50) a.vy[index] += TURN_FACTOR;
+    if (a.y[index] > HEIGHT - 50) a.vy[index] -= TURN_FACTOR;
+
+    float speed = std::sqrt(a.vx[index]*a.vx[index] + a.vy[index]*a.vy[index]);
+    if (speed > MAX_SPEED) {
+        a.vx[index] = a.vx[index] / speed * MAX_SPEED;
+        a.vy[index] = a.vy[index] / speed * MAX_SPEED;
+    }else if (speed < MIN_SPEED) {
+        a.vx[index] = a.vx[index] / speed * MIN_SPEED;
+        a.vy[index] = a.vy[index] / speed * MIN_SPEED;
+    }
+
+}
+void update_positions_soa(Boids& boids,int i) {
+    boids.x[i] += boids.vx[i];
+    boids.y[i] += boids.vy[i];
+
+    if (boids.x[i] < 0)   boids.x[i] += WIDTH;
+    if (boids.x[i] >= WIDTH)  boids.x[i] -= WIDTH;
+    if (boids.y[i] < 0)       boids.y[i] += HEIGHT;
+    if (boids.y[i] >= HEIGHT) boids.y[i] -= HEIGHT;
+
+}
 
 int main() {
     std::vector<Boid> boids(NUM_BOIDS);
     std::vector<Boid> old_boids(NUM_BOIDS);
     init_boids(boids);
     double start,end;
+    printf("START AOS VERSION\n");
     start = omp_get_wtime();
     for (int i = 0; i < NUM_STEPS; i++) {
         old_boids = boids;
         #pragma omp parallel
         {
-        #pragma omp for //nowait TODO corretto o sbagliato metterlo?
+        #pragma omp for
             for (int i = 0; i < NUM_BOIDS; i++) {
                 boids[i].thread_id = omp_get_thread_num();
                 boids_rules(boids[i], old_boids);
             }
 
-            #pragma omp for //nowait
+            #pragma omp for nowait
             for (int i = 0; i < NUM_BOIDS; i++) {
                 update_position(boids[i]);
             }
         }
-        if(i % 100 == 0){
-        #pragma omp critical
-            printf("step: %d\n",i);
-            for (int j = 0; j< 3;j++) {
-                printf("Boid[%d] Thread: %d\n",j,boids[j].thread_id);
-                printf("X: %f , Y: %f\n",boids[j].x,boids[j].y);
-                printf("Vx: %f, Vy: %f\n",boids[j].vx,boids[j].vy);
-            }
-        }
-
     }
     end = omp_get_wtime();
-    printf("Time elapsed parallel mode: %g s\n", (end -start));
-    printf("START SEQUENTIAL MODE\n");
-    init_boids(boids);
-    auto s = std::chrono::steady_clock::now();
-    for (int i = 0; i< NUM_STEPS;i++) {
-        old_boids = boids;
-        for (int j = 0; j < NUM_BOIDS;j++) {
-            boids_rules(boids[j],old_boids);
-        }
-        for (int k = 0; k < NUM_BOIDS;k++) {
-            update_position(boids[k]);
+    printf("Time elapsed parallel mode AOS: %g s\n", end - start);
+
+    printf("START SOA VERSION\n");
+    //SoA
+    Boids b,old;
+    init_boids_soa(b);
+    start = omp_get_wtime();
+    for (int step = 0; step < NUM_STEPS; step++) {
+        old = b;
+        #pragma omp parallel
+        {
+            #pragma omp for
+            for (int i =0; i < NUM_BOIDS; i++) {
+                boids_rules_soa(b,old,i);
+            }
+            #pragma omp for nowait
+            for (int i = 0; i < NUM_BOIDS; i++) {
+                update_positions_soa(b,i);
+            }
         }
     }
-    auto e = std::chrono::steady_clock::now();
-    auto duration = e - s;
-    printf("Time elapsed in sequential mode: %f s\n", std::chrono::duration<double,std::milli>(duration).count() / 1000);
+    end = omp_get_wtime();
+    printf("Time elapsed parallel mode SOA: %g s\n", end - start);
     return 0;
+
 
 }

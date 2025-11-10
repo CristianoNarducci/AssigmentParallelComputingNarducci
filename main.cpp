@@ -18,7 +18,7 @@ struct Boids {
 };
 
 const int NUM_BOIDS = 1000;
-const int NUM_STEPS = 5000;
+const int NUM_STEPS = 1000;
 const float WIDTH = 800;
 const float HEIGHT = 600;
 
@@ -221,6 +221,12 @@ void update_positions_soa(Boids& boids,int i) {
 }
 
 int main() {
+    #ifdef _OPENMP
+        printf("OPENMP VERSION: %d\n", _OPENMP);
+    #elif
+        printf("Error openmp not found!\n");
+    #endif
+
     std::vector<Boid> boids(NUM_BOIDS);
     std::vector<Boid> old_boids(NUM_BOIDS);
     init_boids(boids);

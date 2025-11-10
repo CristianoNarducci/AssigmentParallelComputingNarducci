@@ -8,7 +8,7 @@
 struct Boid {
     float x,y;
     float vx,vy;
-    int thread_id;
+    int thread_id = 0;
 };
 
 //SoA
@@ -17,8 +17,8 @@ struct Boids {
     std::vector<float> vx,vy;
 };
 
-const int NUM_BOIDS = 10000;
-const int NUM_STEPS = 1000;
+const int NUM_BOIDS = 1000;
+const int NUM_STEPS = 5000;
 const float WIDTH = 800;
 const float HEIGHT = 600;
 
@@ -195,7 +195,7 @@ void boids_rules_soa(Boids& a, const Boids& old, int index) {
     a.vy[index] += close_dy * AVOID_FACTOR;
 
     if (a.x[index] < 50) a.vx[index] += TURN_FACTOR;
-    if (a.x[index] > WIDTH - 50) a.vx[index] += TURN_FACTOR;
+    if (a.x[index] > WIDTH - 50) a.vx[index] -= TURN_FACTOR;
     if (a.y[index] < 50) a.vy[index] += TURN_FACTOR;
     if (a.y[index] > HEIGHT - 50) a.vy[index] -= TURN_FACTOR;
 
@@ -228,12 +228,12 @@ int main() {
     printf("START AOS VERSION\n");
     start = omp_get_wtime();
     for (int i = 0; i < NUM_STEPS; i++) {
-        old_boids = boids;
+        std::swap(boids,old_boids);//old_boids = boids;
         #pragma omp parallel
         {
         #pragma omp for
             for (int i = 0; i < NUM_BOIDS; i++) {
-                boids[i].thread_id = omp_get_thread_num();
+                //boids[i].thread_id = omp_get_thread_num();
                 boids_rules(boids[i], old_boids);
             }
 
@@ -250,9 +250,14 @@ int main() {
     //SoA
     Boids b,old;
     init_boids_soa(b);
+    old.x.resize(NUM_BOIDS);
+    old.y.resize(NUM_BOIDS);
+    old.vx.resize(NUM_BOIDS);
+    old.vy.resize(NUM_BOIDS);
+
     start = omp_get_wtime();
     for (int step = 0; step < NUM_STEPS; step++) {
-        old = b;
+        std::swap(b,old);//old = b;
         #pragma omp parallel
         {
             #pragma omp for

@@ -2,9 +2,10 @@
 #include <iostream>
 #include <omp.h>
 #include <vector>
-#include <cmath>
 #include <chrono>
+#include <random>
 #include <SFML/Graphics.hpp>
+
 //AoS
 struct Boid {
     float x,y;
@@ -20,8 +21,8 @@ struct Boids {
 
 const int NUM_BOIDS = 1000;
 const int NUM_STEPS = 1000;
-const int WIDTH = 800;
-const int HEIGHT = 600;
+const int WIDTH = 1000;
+const int HEIGHT = 1600;
 
 // Boids algorithm parameters
 const float VISUAL_RANGE = 40.0f;
@@ -33,13 +34,19 @@ const float TURN_FACTOR = 0.2f;          // Bordo schermo
 const float MAX_SPEED = 6.0f;
 const float MIN_SPEED = 3.0f;
 
+float random_float(float min, float max) {
+    static std::mt19937 gen(42); // seed fisso
+    std::uniform_real_distribution<float> dist(min, max);
+    return dist(gen);
+}
 // Inizializzazione boid casuali
 void init_boids(std::vector<Boid>& boids) {
+
     for(auto &b : boids){
-        b.x = static_cast<float>(rand())/RAND_MAX * WIDTH;
-        b.y = static_cast<float>(rand())/RAND_MAX * HEIGHT;
-        b.vx = (static_cast<float>(rand())/RAND_MAX - 0.5f) * 2;
-        b.vy = (static_cast<float>(rand())/RAND_MAX - 0.5f) * 2;
+        b.x = random_float(0.0f,WIDTH);
+        b.y = random_float(0.0f,HEIGHT);
+        b.vx = random_float(1.0f,3.0f);
+        b.vy = random_float(1.0f,3.0f);
     }
 }
 
@@ -60,11 +67,6 @@ void init_boids_soa(Boids& boids) {
 void update_position(Boid& boid) {
     boid.x += boid.vx;
     boid.y += boid.vy;
-    /*
-    if (boid.x < 0)       boid.x += WIDTH;
-    if (boid.x >= WIDTH)  boid.x -= WIDTH;
-    if (boid.y < 0)       boid.y += HEIGHT;
-    if (boid.y >= HEIGHT) boid.y -= HEIGHT;*/
 
 }
 float getDistance(const Boid& a, const Boid& b) {
@@ -285,7 +287,7 @@ int main() {
     printf("START BOIDS ALGORITHM\n");
     printf("START TIMES COMPARATIONS WITHOUT GRAPHICAL VISUALIZATION\n");
     boids_no_graphical();
-    sf::RenderWindow window(sf::VideoMode({WIDTH + 300,HEIGHT + 300}),"Boids Simulation");
+    sf::RenderWindow window(sf::VideoMode({WIDTH + 300,HEIGHT + 300},32),"Boids Simulation",sf::Style::None,sf::State::Fullscreen);
     window.setFramerateLimit(60);
     std::vector<Boid> boids(NUM_BOIDS);
     std::vector<Boid> old_boids(NUM_BOIDS);

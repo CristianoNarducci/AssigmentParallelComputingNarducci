@@ -11,5 +11,5 @@ The code parallelize and implements the [algorithm](https://vanhunteradams.com/P
 
 ## Requirements
 * **OpenMP** library installed
-* CMake 4.0 or newer
+* **CMake** 4.0 or newer
 * **SFML** library. In the CMake file it's present the code for automatically downloading and installing the library in project directory

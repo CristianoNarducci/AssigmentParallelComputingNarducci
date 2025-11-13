@@ -5,6 +5,7 @@
 #include <chrono>
 #include <random>
 #include <SFML/Graphics.hpp>
+#include <SFML/Window/Event.hpp>
 
 //AoS
 struct Boid {
@@ -21,8 +22,8 @@ struct Boids {
 
 const int NUM_BOIDS = 1000;
 const int NUM_STEPS = 1000;
-const int WIDTH = 1000;
-const int HEIGHT = 1600;
+const int WIDTH = 800;
+const int HEIGHT = 600;
 
 // Boids algorithm parameters
 const float VISUAL_RANGE = 40.0f;
@@ -39,6 +40,7 @@ float random_float(float min, float max) {
     std::uniform_real_distribution<float> dist(min, max);
     return dist(gen);
 }
+
 // Inizializzazione boid casuali
 void init_boids(std::vector<Boid>& boids) {
 
@@ -56,10 +58,10 @@ void init_boids_soa(Boids& boids) {
     boids.vx.reserve(NUM_BOIDS);
     boids.vy.reserve(NUM_BOIDS);
     for (int i = 0; i < NUM_BOIDS; i++) {
-        boids.x.push_back(static_cast<float>(rand())/RAND_MAX * WIDTH);
-        boids.y.push_back(static_cast<float>(rand())/RAND_MAX * HEIGHT);
-        boids.vx.push_back(static_cast<float>(rand())/RAND_MAX - 0.5f);
-        boids.vy.push_back(static_cast<float>(rand())/RAND_MAX - 0.5f);
+        boids.x.push_back(random_float(0.0f,WIDTH));
+        boids.y.push_back(random_float(0.0f,HEIGHT));
+        boids.vx.push_back(random_float(1.0f,3.0f));
+        boids.vy.push_back(random_float(1.0f,3.0f));
 
     }
 }
@@ -131,7 +133,7 @@ void boids_rules(Boid& a, const std::vector<Boid>& boids) {
     if (a.x < 50) {
         a.vx += TURN_FACTOR;
     }
-    if (a.x >= WIDTH) {
+    if (a.x >= WIDTH - 50) {
         a.vx -= TURN_FACTOR;
     }
     if (a.y < 50) {
@@ -218,11 +220,6 @@ void update_positions_soa(Boids& boids,int i) {
     boids.x[i] += boids.vx[i];
     boids.y[i] += boids.vy[i];
 
-    if (boids.x[i] < 0)   boids.x[i] += WIDTH;
-    if (boids.x[i] >= WIDTH)  boids.x[i] -= WIDTH;
-    if (boids.y[i] < 0)       boids.y[i] += HEIGHT;
-    if (boids.y[i] >= HEIGHT) boids.y[i] -= HEIGHT;
-
 }
 void boids_no_graphical() {
     std::vector<Boid> boids(NUM_BOIDS);
@@ -287,7 +284,7 @@ int main() {
     printf("START BOIDS ALGORITHM\n");
     printf("START TIMES COMPARATIONS WITHOUT GRAPHICAL VISUALIZATION\n");
     boids_no_graphical();
-    sf::RenderWindow window(sf::VideoMode({WIDTH + 300,HEIGHT + 300},32),"Boids Simulation",sf::Style::None,sf::State::Fullscreen);
+    sf::RenderWindow window(sf::VideoMode({WIDTH ,HEIGHT },32),"Boids Simulation",sf::Style::None);
     window.setFramerateLimit(60);
     std::vector<Boid> boids(NUM_BOIDS);
     std::vector<Boid> old_boids(NUM_BOIDS);
@@ -295,7 +292,14 @@ int main() {
     sf::CircleShape shape(2);
     shape.setFillColor(sf::Color::White);
     printf("START AOS VERSION WITH GRAPHICAL VISUALIZATION\n");
-    while (window.isOpen()){
+    while (window.isOpen()) {
+        while (const std::optional event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>()) {
+                window.close();
+            }
+        }
+
+
         for (int i = 0; i < NUM_STEPS; i++) {
             std::swap(boids,old_boids);
             #pragma omp parallel

@@ -7,8 +7,11 @@ The program compare two different type of structure passed at the threads for pe
 * **Array of structures**: single array with every boids structure inside it
 * **Structure of Arrays**: single structure with arrays of all position and velocity of boids
 
-The code parallelize and implements the [algorithm](https://vanhunteradams.com/Pico/Animal_Movement/Boids-algorithm.html#Pseudocode) created by *V. Hunter Adams* based from Boids program by Craig Reynolds
+The code parallelize and implements the [algorithm](https://vanhunteradams.com/Pico/Animal_Movement/Boids-algorithm.html#Pseudocode) created by *V. Hunter Adams* based from Boids program by Craig Reynolds.
 
+  For visualize the flock's behavor,the SFML C++ library is installed in the project directory by a dedicated CMAKE instructions accordingly by [official guide](https://www.sfml-dev.org/tutorials/3.0/getting-started/cmake/).
+
+  
 ## Requirements
 * **OpenMP** library installed
 * **CMake** 4.0 or newer

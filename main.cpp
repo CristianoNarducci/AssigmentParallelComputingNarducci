@@ -20,7 +20,7 @@ struct Boids {
     std::vector<float> vx,vy;
 };
 
-const int NUM_BOIDS = 1000;
+const int NUM_BOIDS = 5000;
 const int NUM_STEPS = 1000;
 const int WIDTH = 800;
 const int HEIGHT = 600;
@@ -37,7 +37,7 @@ const float MIN_SPEED = 3.0f;
 
 float random_float(float min, float max) {
     static std::mt19937 gen(42); // seed fisso
-    std::uniform_real_distribution<float> dist(min, max);
+    std::uniform_real_distribution dist(min, max);
     return dist(gen);
 }
 
@@ -221,12 +221,11 @@ void update_positions_soa(Boids& boids,int i) {
     boids.y[i] += boids.vy[i];
 
 }
-void boids_no_graphical() {
+void boids_no_graphical(double& time_par_aos,double& time_par_soa) {
     std::vector<Boid> boids(NUM_BOIDS);
-    std::vector<Boid> old_boids(NUM_BOIDS);
     init_boids(boids);
+    std::vector old_boids(boids);
     double start,end;
-    printf("START AOS VERSION\n");
     start = omp_get_wtime();
     for (int i = 0; i < NUM_STEPS; i++) {
         std::swap(boids,old_boids);
@@ -245,20 +244,14 @@ void boids_no_graphical() {
         }
     }
     end = omp_get_wtime();
-    printf("Time elapsed parallel mode AOS: %g s\n", end - start);
-
-    printf("START SOA VERSION\n");
+    time_par_aos = end - start;
     //SoA
     Boids b,old;
     init_boids_soa(b);
-    old.x.resize(NUM_BOIDS);
-    old.y.resize(NUM_BOIDS);
-    old.vx.resize(NUM_BOIDS);
-    old.vy.resize(NUM_BOIDS);
-
+    old = b;
     start = omp_get_wtime();
     for (int step = 0; step < NUM_STEPS; step++) {
-        std::swap(b,old);//old = b;
+        std::swap(b,old);
         #pragma omp parallel
         {
             #pragma omp for
@@ -272,7 +265,7 @@ void boids_no_graphical() {
         }
     }
     end = omp_get_wtime();
-    printf("Time elapsed parallel mode SOA: %g s\n", end - start);
+    time_par_soa = end - start;
 }
 
 int main() {
@@ -281,15 +274,18 @@ int main() {
 #else
     printf("Error openmp not found!\n");
 #endif
+    double time_aos,time_soa;
     printf("START BOIDS ALGORITHM\n");
     printf("START TIMES COMPARATIONS WITHOUT GRAPHICAL VISUALIZATION\n");
-    boids_no_graphical();
+    boids_no_graphical(time_aos,time_soa);
+    printf("Time elapsed parallel mode AOS: %g s\n", time_aos);
+    printf("Time elapsed parallel mode SOA: %g s\n", time_soa);
     sf::RenderWindow window(sf::VideoMode({WIDTH ,HEIGHT },32),"Boids Simulation",sf::Style::None);
     window.setFramerateLimit(60);
     std::vector<Boid> boids(NUM_BOIDS);
     std::vector<Boid> old_boids(NUM_BOIDS);
     init_boids(boids);
-    sf::CircleShape shape(2);
+    sf::CircleShape shape(3,3);
     shape.setFillColor(sf::Color::White);
     printf("START AOS VERSION WITH GRAPHICAL VISUALIZATION\n");
     while (window.isOpen()) {
@@ -298,7 +294,6 @@ int main() {
                 window.close();
             }
         }
-
 
         for (int i = 0; i < NUM_STEPS; i++) {
             std::swap(boids,old_boids);
@@ -324,5 +319,42 @@ int main() {
         }
         window.close();
     }
+    printf("START SEQUENTIAL VERSION AOS\n");
+    init_boids(boids);
+    auto start_time = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < NUM_STEPS;i++) {
+        std::swap(boids,old_boids);
+        for (int j = 0; j < NUM_BOIDS;j++) {
+            boids_rules(boids[j],old_boids);
+        }
+        for (int k = 0; k < NUM_BOIDS;k++) {
+            update_position(boids[k]);
+        }
+    }
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count() / 1000.f;
+    double duration_aos = duration /1000;
+    printf("Time elapsed sequential mode AOS: %f\n",duration/1000);
+    printf("SPEEDUP AOS: %f\n",duration_aos/time_aos);
+    printf("START SEQUENTIAL VERSION SOA\n");
+    Boids seq_soa,old_seq;
+    init_boids_soa(seq_soa);
+    old_seq = seq_soa;
+    start_time = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < NUM_STEPS;i++) {
+        std::swap(seq_soa,old_seq);
+        for (int j = 0; j < NUM_BOIDS;j++) {
+            boids_rules_soa(seq_soa,old_seq,j);
+        }
+        for (int k = 0; k < NUM_BOIDS;k++) {
+            update_positions_soa(seq_soa,k);
+        }
+    }
+    end_time = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count() / 1000.f;
+    printf("Time elapsed sequential mode SOA: %f\n",duration/1000);
+    double duration_soa = duration /1000;
+    printf("SPEEDUP SOA: %f",duration_soa/time_soa);
+
     return 0;
 }

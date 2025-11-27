@@ -20,7 +20,7 @@ struct Boids {
     std::vector<float> vx,vy;
 };
 
-const int NUM_BOIDS = 5000;
+const int NUM_BOIDS = 10000;
 const int NUM_STEPS = 1000;
 const int WIDTH = 800;
 const int HEIGHT = 600;
@@ -274,12 +274,12 @@ int main() {
 #else
     printf("Error openmp not found!\n");
 #endif
-    double time_aos,time_soa;
+    double time_aos_parallel,time_soa_parallel;
     printf("START BOIDS ALGORITHM\n");
     printf("START TIMES COMPARATIONS WITHOUT GRAPHICAL VISUALIZATION\n");
-    boids_no_graphical(time_aos,time_soa);
-    printf("Time elapsed parallel mode AOS: %g s\n", time_aos);
-    printf("Time elapsed parallel mode SOA: %g s\n", time_soa);
+    boids_no_graphical(time_aos_parallel,time_soa_parallel);
+    printf("Time elapsed parallel mode AOS: %g s\n", time_aos_parallel);
+    printf("Time elapsed parallel mode SOA: %g s\n", time_soa_parallel);
     sf::RenderWindow window(sf::VideoMode({WIDTH ,HEIGHT },32),"Boids Simulation",sf::Style::None);
     window.setFramerateLimit(60);
     std::vector<Boid> boids(NUM_BOIDS);
@@ -333,9 +333,9 @@ int main() {
     }
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count() / 1000.f;
-    double duration_aos = duration /1000;
+    double time_aos_sequential = duration / 1000;
     printf("Time elapsed sequential mode AOS: %f\n",duration/1000);
-    printf("SPEEDUP AOS: %f\n",duration_aos/time_aos);
+    printf("SPEEDUP AOS: %f\n",time_aos_sequential/time_aos_parallel);
     printf("START SEQUENTIAL VERSION SOA\n");
     Boids seq_soa,old_seq;
     init_boids_soa(seq_soa);
@@ -353,8 +353,8 @@ int main() {
     end_time = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count() / 1000.f;
     printf("Time elapsed sequential mode SOA: %f\n",duration/1000);
-    double duration_soa = duration /1000;
-    printf("SPEEDUP SOA: %f",duration_soa/time_soa);
+    double time_soa_seq = duration/1000;
+    printf("SPEEDUP SOA: %f",time_soa_seq / time_soa_parallel);
 
     return 0;
 }
